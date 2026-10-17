@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night" data-era="none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#05070a">
+    <meta name="description" content="悬案录 · 与判官对坐，在证词与物证的裂缝里找出真凶。">
+    <title>悬案录 · 文字探案</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%2305070a'/%3E%3Ctext x='32' y='47' font-size='40' text-anchor='middle' fill='%23c0392b' font-family='serif'%3E%E6%82%AC%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('xuananlu-theme');
+                if (saved === 'sepia' || saved === 'night') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                    var meta = document.querySelector('meta[name="theme-color"]');
+                    if (meta) meta.setAttribute('content', saved === 'sepia' ? '#d9cdb3' : '#05070a');
+                }
+            } catch (e) { /* 隐私模式下忽略 */ }
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+    <!-- 氛围层：雾、颗粒、扫描线、暗角 -->
+    <div class="atmosphere" aria-hidden="true">
+        <span class="fog fog--a"></span>
+        <span class="fog fog--b"></span>
+        <span class="grain"></span>
+        <span class="scanlines"></span>
+        <span class="vignette"></span>
+    </div>
+
+    <div class="app">
+        <!-- ==================== 左：卷宗库 ==================== -->
+        <aside class="archives" id="archives" aria-label="卷宗库">
+            <header class="brand">
+                <span class="brand-mark" aria-hidden="true"><span>悬</span></span>
+                <div class="brand-copy">
+                    <h1>悬案录</h1>
+                    <span>COLD CASE ARCHIVE</span>
+                </div>
+            </header>
+
+            <button class="new-case" id="newCaseBtn" type="button">
+                <span class="new-case-icon" aria-hidden="true">＋</span>
+                <span class="new-case-copy">
+                    <b>开启新案</b>
+                    <small>随机年代 · 全新卷宗</small>
+                </span>
+            </button>
+
+            <div class="archive-head">
+                <span>卷宗库</span>
+                <span class="archive-count" id="caseCount">00</span>
+            </div>
+            <nav class="archive-list" id="sessionList" aria-label="卷宗列表"></nav>
+            <p class="archive-empty" id="sessionEmpty">尚无卷宗存档</p>
+
+            <footer class="archive-foot">
+                <span>输入 <code>换新案</code> 可随时封旧卷、开新局。旧案线索一律作废。</span>
+            </footer>
+        </aside>
+        <div class="veil" id="railVeil" aria-hidden="true"></div>
+
+        <!-- ==================== 中：审讯台 ==================== -->
+        <main class="desk">
+            <header class="case-bar">
+                <button class="icon-btn narrow-only" id="menuBtn" type="button" aria-label="打开卷宗库">☰</button>
+
+                <div class="case-index">
+                    <span class="case-index-label">CASE FILE</span>
+                    <span class="case-index-no" id="caseNumber">NO. ——</span>
+                </div>
+
+                <div class="case-head">
+                    <p class="case-kicker"><i class="kicker-dot" aria-hidden="true"></i><span id="caseKicker">等待判官调卷</span></p>
+                    <h1 class="case-title" id="caseTitle">未启卷宗</h1>
+                    <div class="case-tags" id="caseTags">
+                        <span class="tag tag--ghost">待调阅</span>
+                    </div>
+                </div>
+
+                <div class="case-tools">
+                    <span class="watch" id="watchState"><i></i><span>判官在卷</span></span>
+                    <button class="icon-btn board-toggle" id="panelBtn" type="button" aria-label="打开案卷板">卷</button>
+                    <div class="theme-wrap">
+                        <button class="icon-btn" id="themeBtn" type="button" aria-label="切换卷宗底色" aria-expanded="false">◐</button>
+                        <div class="theme-menu" id="themeMenu" role="menu">
+                            <button class="theme-item" type="button" data-theme="night" role="menuitem">
+                                <span class="swatch swatch--night"></span>午夜卷宗
+                            </button>
+                            <button class="theme-item" type="button" data-theme="sepia" role="menuitem">
+                                <span class="swatch swatch--sepia"></span>旧纸卷宗
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <section class="transcript" id="transcript" aria-live="polite" aria-label="卷宗笔录"></section>
+
+            <div class="deck" id="deck">
+                <span class="deck-label">快令</span>
+                <button class="chip" type="button" data-cmd="勘察现场">勘察现场</button>
+                <button class="chip" type="button" data-cmd="梳理时间线">梳理时间线</button>
+                <button class="chip" type="button" data-cmd="查验物证：">查验物证</button>
+                <button class="chip chip--submit" type="button" data-cmd="提交推理：">提交推理</button>
+                <button class="chip chip--danger" type="button" id="resetChip">换新案</button>
+            </div>
+
+            <form class="composer" id="composer" autocomplete="off">
+                <span class="composer-prompt" aria-hidden="true">❯</span>
+                <input
+                    class="composer-input"
+                    id="chatInput"
+                    type="text"
+                    maxlength="2000"
+                    spellcheck="false"
+                    placeholder="写下推断，或下令：勘察现场 / 盘问 周砚 / 查验 香灰">
+                <button class="send-btn" id="sendBtn" type="submit">呈交</button>
+            </form>
+            <p class="composer-note">判官只认「凶手 + 完整手法」。只点名字，卷底不会翻。</p>
+        </main>
+
+        <!-- ==================== 右：案卷板 ==================== -->
+        <aside class="board" id="board" aria-label="案卷板">
+            <div class="board-head">
+                <div>
+                    <span class="eyebrow">INVESTIGATION BOARD</span>
+                    <h2>案卷板</h2>
+                </div>
+                <button class="icon-btn board-close" id="panelClose" type="button" aria-label="收起案卷板">✕</button>
+            </div>
+
+            <div class="board-body" id="boardBody">
+                <div class="board-placeholder" id="boardPlaceholder">
+                    <span class="board-seal" aria-hidden="true">案</span>
+                    <p>卷宗尚未调取。开卷之后，四名嫌疑人的档案与可查清单会钉在这里。</p>
+                </div>
+
+                <section class="board-block" id="briefBlock" hidden>
+                    <h3><span>卷宗摘要</span></h3>
+                    <details class="brief-card" id="sceneCard">
+                        <summary>案发 · 死者</summary>
+                        <p id="sceneText"></p>
+                    </details>
+                    <details class="brief-card" id="siteCard">
+                        <summary>现场 · 勘验</summary>
+                        <p id="siteText"></p>
+                    </details>
+                </section>
+
+                <section class="board-block" id="suspectsBlock" hidden>
+                    <h3><span>嫌疑人</span><em id="suspectCount">04</em></h3>
+                    <div class="suspect-list" id="suspectList"></div>
+                    <p class="board-hint" id="suspectHint" hidden>判官这次没按格式列名，请在卷宗正文里看。</p>
+                </section>
+
+                <section class="board-block" id="clueBlock" hidden>
+                    <h3><span>可查 · 物证与对象</span></h3>
+                    <div class="clue-list" id="clueList"></div>
+                    <p class="board-hint" id="clueHint" hidden>暂无清单，直接输入“勘察现场”开始。</p>
+                </section>
+
+                <section class="board-block board-block--rules">
+                    <h3><span>破案条件</span></h3>
+                    <p>同时说清 <b>凶手姓名</b> 与 <b>完整手法</b>：如何致死、如何布置现场、关键物证或时间线如何被利用。缺一项，判官不会掀卷底。</p>
+                </section>
+
+                <section class="board-block board-block--quote">
+                    <p>「死人不会改口，活人每天都在改。」</p>
+                </section>
+            </div>
+        </aside>
+        <div class="veil" id="boardVeil" aria-hidden="true"></div>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="overlay" id="overlay" hidden>
+        <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+            <span class="dialog-kicker" id="dialogKicker">SEAL THE FILE</span>
+            <h3 id="dialogTitle">封存当前卷宗？</h3>
+            <p id="dialogText">旧案的人名、物证、线索将全部作废，判官会另开一桩新案，年代与手法重新抽取。</p>
+            <div class="dialog-actions">
+                <button class="btn-ghost" id="cancelDialog" type="button">再想想</button>
+                <button class="btn-danger" id="confirmDialog" type="button">封卷另开</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>
